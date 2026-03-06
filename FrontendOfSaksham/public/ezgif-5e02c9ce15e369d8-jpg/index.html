@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Saksham | Scroll Animation</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body {
+  background-color: #fff7ed;
+}
+
+img {
+  user-select: none;
+  pointer-events: none;
+}
+</style>
+</head>
+
+<body class="h-[300vh] flex items-start justify-center">
+
+<!-- Animation Container -->
+<div class="sticky top-1/4 w-64">
+  <img
+    id="frame"
+    src="ezgif-frame-001.jpg"
+    class="w-full"
+    alt="Saksham progress animation"
+  />
+</div>
+
+<script>
+const frameCount = 200; // total number of frames
+const frame = document.getElementById("frame");
+
+window.addEventListener("scroll", () => {
+  const scrollTop = window.scrollY;
+  const maxScroll = document.body.scrollHeight - window.innerHeight;
+  const scrollFraction = scrollTop / maxScroll;
+
+  const frameIndex = Math.min(
+    frameCount - 1,
+    Math.floor(scrollFraction * frameCount)
+  );
+
+  const frameNumber = String(frameIndex + 1).padStart(3, "0");
+  frame.src = `ezgif-frame-${frameNumber}.jpg`;
+});
+</script>
+
+</body>
+</html>
