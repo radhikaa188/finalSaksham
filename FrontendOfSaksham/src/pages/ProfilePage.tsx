@@ -3,7 +3,11 @@ import { useAuth, useUser } from '@clerk/clerk-react';
 import { useLang } from '../contexts/LanguageContext';
 import { useUserContext } from '../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Briefcase, MessageSquare, User, Clock, TrendingUp, RotateCcw, ArrowLeft, CheckCircle2, Circle, ExternalLink } from 'lucide-react';
+import {
+  BookOpen, Briefcase, MessageSquare, User, Clock, TrendingUp,
+  RotateCcw, ArrowLeft, CheckCircle2, Circle, ExternalLink,
+  Sparkles, ChevronDown, ChevronUp, Target,
+} from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -40,19 +44,25 @@ const goalLabel: Record<string, string> = {
   both: '🚀 Both',
 };
 
+type Tab = 'overview' | 'interests' | 'courses' | 'jobs' | 'chats';
+
 export function ProfilePage() {
   const { getToken } = useAuth();
   const { user } = useUser();
   const { lang } = useLang();
-  const { profile, savedCareer, clearData } = useUserContext(); // ← local data
+  const { profile, savedCareer, clearData, interestHistory, fetchInterestHistory, historyLoading } = useUserContext();
   const navigate = useNavigate();
 
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'careers' | 'courses' | 'jobs' | 'chats'>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [expandedInterest, setExpandedInterest] = useState<string | null>(null);
+  const [expandedCourseGroup, setExpandedCourseGroup] = useState<string | null>(null);
+  const [expandedJobGroup, setExpandedJobGroup] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
+    fetchInterestHistory();
   }, []);
 
   const fetchProfile = async () => {
@@ -78,31 +88,84 @@ export function ProfilePage() {
     );
   }
 
+  // ── Derived data ─────────────────────────────────────────────────────────
+
   const completedSteps = savedCareer?.roadmap.filter(s => s.completed).length || 0;
   const totalSteps = savedCareer?.roadmap.length || 0;
   const progressPercent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
+  // Course groups: each interest entry that has a selected career + courses
+  const courseGroups = interestHistory
+    .filter(e => e.selectedCareer && e.courses && e.courses.length > 0)
+    .map(e => ({
+      careerTitle: e.selectedCareer!.title,
+      transcript: e.transcript,
+      entryId: e._id,
+      courses: e.courses || [],
+      completedCourses: e.completedCourses || [],
+      isActive: savedCareer?.title === e.selectedCareer!.title,
+      createdAt: e.createdAt,
+    }));
+
+  // Fallback: savedCareer courses not already covered by history
+  const historyCareerTitles = new Set(courseGroups.map(g => g.careerTitle));
+  if (savedCareer?.courses?.length && !historyCareerTitles.has(savedCareer.title)) {
+    courseGroups.unshift({
+      careerTitle: savedCareer.title,
+      transcript: '',
+      entryId: 'local',
+      courses: savedCareer.courses,
+      completedCourses: savedCareer.completedCourses || [],
+      isActive: true,
+      createdAt: savedCareer.selectedAt,
+    });
+  }
+
+  // Job groups: ALL jobs (applied + not), grouped by career+interest
+  const jobGroups = interestHistory
+    .filter(e => e.selectedCareer && e.jobs && e.jobs.length > 0)
+    .map(e => ({
+      careerTitle: e.selectedCareer!.title,
+      transcript: e.transcript,
+      entryId: e._id,
+      jobs: e.jobs || [],
+      appliedJobs: e.appliedJobs || [],
+      isActive: savedCareer?.title === e.selectedCareer!.title,
+      createdAt: e.createdAt,
+    }));
+
+  // Fallback for savedCareer jobs
+  const historyJobTitles = new Set(jobGroups.map(g => g.careerTitle));
+  if (savedCareer?.jobs?.length && !historyJobTitles.has(savedCareer.title)) {
+    jobGroups.unshift({
+      careerTitle: savedCareer.title,
+      transcript: '',
+      entryId: 'local',
+      jobs: savedCareer.jobs,
+      appliedJobs: savedCareer.appliedJobs || [],
+      isActive: true,
+      createdAt: savedCareer.selectedAt,
+    });
+  }
+
+  const totalApplied = jobGroups.reduce((sum, g) => sum + g.appliedJobs.length, 0);
+  const totalJobs = jobGroups.reduce((sum, g) => sum + g.jobs.length, 0);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors relative overflow-hidden pt-24 pb-20">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-20 w-96 h-96 bg-purple-500/20 dark:bg-purple-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 -right-20 w-96 h-96 bg-orange-500/20 dark:bg-orange-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-0 -left-20 w-96 h-96 bg-purple-500/20 dark:bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 -right-20 w-96 h-96 bg-orange-500/20 dark:bg-orange-500/10 rounded-full blur-3xl" />
       </div>
 
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-        {/* ── Back nav ── */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors font-outfit"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </button>
-        </div>
+        {/* Back */}
+        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors font-outfit">
+          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+        </button>
 
-        {/* ── Account Info ── */}
+        {/* Account Info */}
         <div className="bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-black/5 dark:border-white/10 shadow-xl">
           <div className="flex items-center gap-4">
             {user?.imageUrl ? (
@@ -113,86 +176,43 @@ export function ProfilePage() {
               </div>
             )}
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white font-outfit">
-                {user?.fullName || user?.firstName || 'User'}
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-outfit">
-                {user?.emailAddresses?.[0]?.emailAddress}
-              </p>
-              {/* Show local profile tags if available, else fall back to backend */}
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white font-outfit">{user?.fullName || user?.firstName || 'User'}</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-outfit">{user?.emailAddresses?.[0]?.emailAddress}</p>
               <div className="flex flex-wrap gap-2 mt-2">
                 {profile ? (
                   <>
-                    <span className="px-2 py-1 rounded-full text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 font-outfit">
-                      {profile.education}
-                    </span>
-                    <span className="px-2 py-1 rounded-full text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">
-                      {goalLabel[profile.goal] || profile.goal}
-                    </span>
-                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 font-outfit">
-                      📍 {profile.city}
-                    </span>
+                    <span className="px-2 py-1 rounded-full text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 font-outfit">{profile.education}</span>
+                    <span className="px-2 py-1 rounded-full text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">{goalLabel[profile.goal] || profile.goal}</span>
+                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 font-outfit">📍 {profile.city}</span>
                   </>
                 ) : data?.profile ? (
                   <>
-                    <span className="px-2 py-1 rounded-full text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 font-outfit">
-                      {data.profile.preferredLanguage === 'hindi' ? 'Hindi' : 'English'}
-                    </span>
-                    <span className="px-2 py-1 rounded-full text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">
-                      {data.profile.workPreference || 'Both'}
-                    </span>
+                    <span className="px-2 py-1 rounded-full text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 font-outfit">{data.profile.preferredLanguage === 'hindi' ? 'Hindi' : 'English'}</span>
+                    <span className="px-2 py-1 rounded-full text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">{data.profile.workPreference || 'Both'}</span>
                   </>
                 ) : null}
               </div>
             </div>
           </div>
-
-          {/* Languages known */}
-          {profile?.languages && profile.languages.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/8">
+          {(profile?.languages?.length ?? 0) > 0 && (
+            <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/[0.08]">
               <p className="text-xs text-gray-400 dark:text-gray-500 font-outfit mb-2">Languages</p>
               <div className="flex flex-wrap gap-2">
-                {profile.languages.map((l: string) => (
-                  <span key={l} className="px-3 py-1 rounded-full text-xs font-outfit bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-300 border border-black/5 dark:border-white/10">
-                    {l}
-                  </span>
+                {profile?.languages?.map((l: string) => (
+                  <span key={l} className="px-3 py-1 rounded-full text-xs font-outfit bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-300 border border-black/5 dark:border-white/10">{l}</span>
                 ))}
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Stats row ── */}
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            {
-              label: 'Careers Explored',
-              value: data?.stats.totalCareersExplored || (savedCareer ? 1 : 0),
-              icon: Briefcase,
-              color: 'text-orange-400',
-              bg: 'bg-orange-500/10',
-            },
-            {
-              label: 'Courses Seen',
-              value: data?.stats.totalCoursesSeen || savedCareer?.courses.length || 0,
-              icon: BookOpen,
-              color: 'text-purple-400',
-              bg: 'bg-purple-500/10',
-            },
-            {
-              label: 'Courses Done',
-              value: savedCareer?.completedCourses.length || 0,
-              icon: BookOpen,
-              color: 'text-green-400',
-              bg: 'bg-green-500/10',
-            },
-            {
-              label: 'Roadmap Progress',
-              value: `${progressPercent}%`,
-              icon: TrendingUp,
-              color: 'text-pink-400',
-              bg: 'bg-pink-500/10',
-            },
+            { label: 'Interests Explored', value: interestHistory.length || 0, icon: Sparkles, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+            { label: 'Careers Chosen', value: interestHistory.filter(e => e.selectedCareer).length || (savedCareer ? 1 : 0), icon: Target, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+            { label: 'Jobs Applied', value: totalApplied, icon: Briefcase, color: 'text-green-400', bg: 'bg-green-500/10' },
+            { label: 'Roadmap Progress', value: `${progressPercent}%`, icon: TrendingUp, color: 'text-pink-400', bg: 'bg-pink-500/10' },
           ].map((stat, i) => (
             <div key={i} className="bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-black/5 dark:border-white/10 shadow text-center">
               <div className={`w-8 h-8 rounded-xl ${stat.bg} flex items-center justify-center mx-auto mb-2`}>
@@ -204,56 +224,43 @@ export function ProfilePage() {
           ))}
         </div>
 
-        {/* ── Current career card ── */}
+        {/* Current career progress */}
         {savedCareer && (
           <div className="bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-5 border border-orange-500/20 shadow-xl">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-orange-600 dark:text-orange-400 font-outfit">Current Career Path</p>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="text-xs text-gray-400 hover:text-orange-400 font-outfit transition-colors"
-              >
-                View Dashboard →
-              </button>
+              <button onClick={() => navigate('/dashboard')} className="text-xs text-gray-400 hover:text-orange-400 font-outfit transition-colors">View Dashboard →</button>
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white font-outfit mb-3">{savedCareer.title}</h3>
             <div className="h-2 rounded-full overflow-hidden bg-gray-200 dark:bg-white/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-orange-500 to-pink-600 transition-all duration-700"
-                style={{ width: `${progressPercent}%` }}
-              />
+              <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-pink-600 transition-all duration-700" style={{ width: `${progressPercent}%` }} />
             </div>
-            <p className="text-xs text-gray-400 font-outfit mt-1.5">
-              {completedSteps} of {totalSteps} roadmap steps completed
-            </p>
+            <p className="text-xs text-gray-400 font-outfit mt-1.5">{completedSteps} of {totalSteps} roadmap steps completed</p>
           </div>
         )}
 
-        {/* ── Tabs ── */}
-        <div className="flex gap-2 bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-xl p-1 border border-black/5 dark:border-white/10">
-          {[
+        {/* Tabs */}
+        <div className="flex gap-1 bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-xl p-1 border border-black/5 dark:border-white/10 overflow-x-auto">
+          {([
             { key: 'overview', label: 'Overview', icon: User },
-            { key: 'careers', label: 'Careers', icon: Briefcase },
+            { key: 'interests', label: 'Interests', icon: Sparkles },
             { key: 'courses', label: 'Courses', icon: BookOpen },
-            { key: 'jobs', label: 'Jobs', icon: CheckCircle2 },
+            { key: 'jobs', label: 'Jobs', icon: Briefcase },
             { key: 'chats', label: 'Chats', icon: MessageSquare },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all font-outfit ${
+          ] as { key: Tab; label: string; icon: any }[]).map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all font-outfit whitespace-nowrap ${
                 activeTab === tab.key
                   ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white shadow'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
+              }`}>
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* ── Overview Tab ── */}
+        {/* ── OVERVIEW ── */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
             {profile ? (
@@ -275,31 +282,15 @@ export function ProfilePage() {
             ) : (
               <div className="text-center py-10">
                 <p className="text-gray-500 dark:text-gray-400 font-outfit mb-4">No local profile found.</p>
-                <button
-                  onClick={() => navigate('/onboarding')}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold font-outfit"
-                >
-                  Complete Onboarding
-                </button>
+                <button onClick={() => navigate('/onboarding')} className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold font-outfit">Complete Onboarding</button>
               </div>
             )}
-
-            {/* Danger zone */}
             {profile && (
               <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-5">
                 <p className="text-sm font-semibold text-red-500 font-outfit mb-1">Danger Zone</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-outfit mb-3">
-                  This will delete all your local profile, career, and progress data.
-                </p>
-                <button
-                  onClick={() => {
-                    if (confirm('Are you sure? This cannot be undone.')) {
-                      clearData();
-                      navigate('/onboarding');
-                    }
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-500 text-sm font-outfit hover:bg-red-500/20 transition-all"
-                >
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-outfit mb-3">This will delete all your local profile, career, and progress data.</p>
+                <button onClick={() => { if (confirm('Are you sure? This cannot be undone.')) { clearData(); navigate('/onboarding'); } }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-500 text-sm font-outfit hover:bg-red-500/20 transition-all">
                   <RotateCcw className="w-3.5 h-3.5" /> Reset My Data
                 </button>
               </div>
@@ -307,245 +298,288 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* ── Careers Tab ── */}
-        {activeTab === 'careers' && (
+        {/* ── INTERESTS ── */}
+        {activeTab === 'interests' && (
           <div className="space-y-4">
-            {/* Local saved career */}
-            {savedCareer && (
-              <div className="bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-xl p-5 border border-orange-500/30 shadow">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-xs text-orange-500 font-outfit font-semibold uppercase tracking-wider">Current</span>
-                    <h3 className="font-bold text-gray-900 dark:text-white font-outfit mt-1">{savedCareer.title}</h3>
-                    <div className="flex gap-2 mt-2">
-                      <span className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-600 dark:text-green-400 font-outfit">
-                        {progressPercent}% complete
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-400 font-outfit">
-                    <Clock className="w-3 h-3" />
-                    {new Date(savedCareer.selectedAt).toLocaleDateString('en-IN')}
-                  </div>
-                </div>
+            {historyLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
               </div>
-            )}
-            {/* Backend sessions */}
-            {data?.sessions.length === 0 && !savedCareer ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8 font-outfit">
-                No careers explored yet. Go to Career Guide! 🚀
-              </p>
-            ) : (
-              data?.sessions.map((session, i) => (
-                <div key={i} className="bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-xl p-5 border border-black/5 dark:border-white/10 shadow">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-gray-900 dark:text-white font-outfit">
-                        {session.chosenCareer || 'Unknown Career'}
-                      </h3>
-                      <div className="flex gap-2 mt-2">
-                        <span className="px-2 py-1 rounded text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 font-outfit">
-                          {session.preferredLanguage}
-                        </span>
-                        <span className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-600 dark:text-green-400 font-outfit">
-                          {session.preferredJobType}
-                        </span>
-                        <span className="px-2 py-1 rounded text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">
-                          {session.courseLevel}
-                        </span>
+            ) : interestHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-orange-500/10">
+                  <Sparkles className="w-8 h-8 text-orange-400" />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 font-outfit text-sm">No interests explored yet. Talk to the Career Guide! 🎤</p>
+                <button onClick={() => navigate('/guide')} className="mt-4 px-5 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit" style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>
+                  Go to Career Guide
+                </button>
+              </div>
+            ) : interestHistory.map(entry => {
+              const isExpanded = expandedInterest === entry._id;
+              const isActive = savedCareer?.title === entry.selectedCareer?.title;
+              return (
+                <div key={entry._id} className={`bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl border shadow transition-all ${isActive ? 'border-orange-500/30' : 'border-black/5 dark:border-white/10'}`}>
+                  <div className="p-5 cursor-pointer" onClick={() => setExpandedInterest(isExpanded ? null : entry._id)}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {isActive && <span className="px-2 py-0.5 rounded-full text-xs bg-orange-500/10 text-orange-500 font-outfit font-semibold">Active</span>}
+                          <span className="flex items-center gap-1 text-xs text-gray-400 font-outfit">
+                            <Clock className="w-3 h-3" />
+                            {new Date(entry.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 font-outfit line-clamp-2 mb-2">🎤 "{entry.transcript}"</p>
+                        {entry.selectedCareer ? (
+                          <div className="flex items-center gap-2">
+                            <Target className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                            <span className="text-sm font-semibold text-green-600 dark:text-green-400 font-outfit">{entry.selectedCareer.title}</span>
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-green-500/10 text-green-600 dark:text-green-400 font-outfit">{entry.selectedCareer.type}</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 font-outfit italic">No career selected from this search</p>
+                        )}
+                      </div>
+                      <button className="flex-shrink-0 text-gray-400">
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {entry.careers.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {entry.careers.map((c, i) => (
+                          <span key={i} className={`px-2.5 py-1 rounded-full text-xs font-outfit ${
+                            entry.selectedCareer?.title === c.title
+                              ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400 font-semibold'
+                              : 'bg-gray-100 dark:bg-white/[0.08] text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {entry.selectedCareer?.title === c.title ? '✓ ' : ''}{c.title}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {isExpanded && entry.selectedCareer && (
+                    <div className="px-5 pb-5 space-y-4 border-t border-black/5 dark:border-white/[0.08] pt-4">
+                      {entry.selectedCareer.description && (
+                        <div>
+                          <p className="text-xs text-gray-400 font-outfit uppercase tracking-wider mb-1">About this career</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 font-outfit">{entry.selectedCareer.description}</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: 'Courses Done', value: entry.completedCourses?.length || 0, total: entry.courses?.length || 0, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+                          { label: 'Jobs Applied', value: entry.appliedJobs?.length || 0, total: entry.jobs?.length || 0, color: 'text-green-400', bg: 'bg-green-500/10' },
+                          { label: 'Roadmap', value: entry.roadmap?.filter((s: any) => s.completed).length || 0, total: entry.roadmap?.length || 0, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+                        ].map((stat, i) => (
+                          <div key={i} className={`rounded-xl p-3 ${stat.bg} text-center`}>
+                            <p className={`text-lg font-bold font-outfit ${stat.color}`}>
+                              {stat.value}<span className="text-xs font-normal opacity-60">/{stat.total}</span>
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-outfit">{stat.label}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-400 font-outfit">
-                      <Clock className="w-3 h-3" />
-                      {new Date(session.createdAt).toLocaleDateString('en-IN')}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              ))
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── COURSES — grouped by career, shows which interest ── */}
+        {activeTab === 'courses' && (
+          <div className="space-y-8">
+            {courseGroups.length === 0 && !data?.sessions.flatMap(s => s.courses || []).length ? (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-8 font-outfit">No courses seen yet. Ask the agent "show me courses"! 🎓</p>
+            ) : (
+              <>
+                {courseGroups.map(group => {
+                  const isCourseOpen = expandedCourseGroup === group.entryId;
+                  return (
+                  <div key={group.entryId} className={`bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl border shadow transition-all ${group.isActive ? 'border-orange-500/20' : 'border-black/5 dark:border-white/10'}`}>
+                    {/* Clickable header */}
+                    <div className="flex items-center justify-between gap-3 p-4 cursor-pointer select-none" onClick={() => setExpandedCourseGroup(isCourseOpen ? null : group.entryId)}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`text-sm font-semibold font-outfit ${group.isActive ? 'text-orange-500' : 'text-gray-800 dark:text-gray-200'}`}>
+                            {group.isActive && '⭐ '}{group.careerTitle}
+                          </p>
+                          {group.isActive && <span className="px-2 py-0.5 rounded-full text-xs bg-orange-500/10 text-orange-500 font-outfit">Active</span>}
+                        </div>
+                        {group.transcript && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 font-outfit mt-0.5 line-clamp-1">🎤 "{group.transcript}"</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-gray-400 font-outfit">{group.completedCourses.length}/{group.courses.length} done</span>
+                        {isCourseOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                      </div>
+                    </div>
+
+                    {/* Expandable courses */}
+                    {isCourseOpen && (
+                      <div className="px-4 pb-4 space-y-2 border-t border-black/5 dark:border-white/[0.08] pt-3">
+                        {group.courses.map((course, i) => {
+                          const done = group.completedCourses.includes(course.title);
+                          return (
+                            <a key={i} href={course.url} target="_blank" rel="noopener noreferrer"
+                              className={`block rounded-xl p-3 border transition-all hover:border-purple-500 ${done ? 'bg-green-500/5 border-green-500/20' : 'bg-gray-50 dark:bg-white/[0.03] border-black/5 dark:border-white/[0.08]'}`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {done ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> : <Circle className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />}
+                                    <h3 className={`font-semibold font-outfit text-sm ${done ? 'text-green-500 line-through opacity-70' : 'text-gray-900 dark:text-white'}`}>{course.title}</h3>
+                                  </div>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-outfit ml-5">{course.platform}</p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                  <span className="px-2 py-0.5 rounded text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">{course.level}</span>
+                                  {done && <span className="text-xs text-green-500 font-outfit">✓ Done</span>}
+                                </div>
+                              </div>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
+
+                {/* Backend sessions fallback */}
+                {courseGroups.length === 0 && data?.sessions.flatMap(s => s.courses || []).map((course: any, i: number) => (
+                  <a key={i} href={course.url} target="_blank" rel="noopener noreferrer"
+                    className="block bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-black/5 dark:border-white/10 shadow hover:border-purple-500 transition-all">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white font-outfit text-sm">{course.title}</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-outfit">{course.platform}</p>
+                      </div>
+                      <span className="px-2 py-1 rounded text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">{course.level}</span>
+                    </div>
+                  </a>
+                ))}
+              </>
             )}
           </div>
         )}
 
-        {/* ── Courses Tab ── */}
-        {activeTab === 'courses' && (
-          <div className="space-y-4">
-            {/* Local saved courses */}
-            {savedCareer?.courses && savedCareer.courses.length > 0 && (
-              <>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-orange-500 font-outfit font-semibold uppercase tracking-wider">
-                    Courses — {savedCareer.title}
-                  </p>
-                  <span className="text-xs text-gray-500 font-outfit">
-                    {savedCareer.completedCourses?.length || 0}/{savedCareer.courses.length} completed
-                  </span>
+        {/* ── JOBS — all jobs grouped by career+interest, with applied status ── */}
+        {activeTab === 'jobs' && (
+          <div className="space-y-8">
+            {jobGroups.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-orange-500/10">
+                  <Briefcase className="w-8 h-8 text-orange-400" />
                 </div>
-                {savedCareer.courses.map((course, i) => {
-                  const done = savedCareer.completedCourses.includes(course.title);
+                <p className="text-gray-500 dark:text-gray-400 font-outfit text-sm">No job data yet. Choose a career in the Career Guide first! 🚀</p>
+                <button onClick={() => navigate('/guide')} className="mt-4 px-5 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit" style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>
+                  Go to Career Guide
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Summary */}
+                <div className="rounded-2xl p-4 flex items-center gap-4 bg-green-500/5 dark:bg-green-500/5 border border-green-500/20">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-green-500/15">
+                    <Briefcase className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 dark:text-white font-outfit text-sm">{totalApplied} of {totalJobs} platforms applied across all careers</p>
+                    <p className="text-xs text-gray-500 font-outfit mt-0.5">Mark jobs applied from your Dashboard to track progress</p>
+                  </div>
+                </div>
+
+                {jobGroups.map(group => {
+                  const isJobOpen = expandedJobGroup === group.entryId;
                   return (
-                    <a key={i} href={course.url} target="_blank" rel="noopener noreferrer"
-                      className={`block backdrop-blur-sm rounded-xl p-5 border shadow hover:border-purple-500 transition-all ${
-                        done
-                          ? 'bg-green-500/5 border-green-500/20'
-                          : 'bg-white/70 dark:bg-white/5 border-black/5 dark:border-white/10'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className={`font-bold font-outfit ${done ? 'text-green-500 line-through opacity-70' : 'text-gray-900 dark:text-white'}`}>
-                            {course.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-outfit">
-                            {course.platform} · {savedCareer.title}
+                  <div key={group.entryId} className={`bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl border shadow transition-all ${group.isActive ? 'border-orange-500/20' : 'border-black/5 dark:border-white/10'}`}>
+                    {/* Clickable header */}
+                    <div className="flex items-center justify-between gap-3 p-4 cursor-pointer select-none" onClick={() => setExpandedJobGroup(isJobOpen ? null : group.entryId)}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`text-sm font-semibold font-outfit ${group.isActive ? 'text-orange-500' : 'text-gray-800 dark:text-gray-200'}`}>
+                            {group.isActive && '⭐ '}{group.careerTitle}
                           </p>
+                          {group.isActive && <span className="px-2 py-0.5 rounded-full text-xs bg-orange-500/10 text-orange-500 font-outfit">Active</span>}
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="px-2 py-1 rounded text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">
-                            {course.level}
-                          </span>
-                          {done && <span className="text-xs text-green-500 font-outfit">✓ Done</span>}
+                        {group.transcript && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 font-outfit mt-0.5 line-clamp-1">🎤 "{group.transcript}"</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-gray-400 font-outfit">{group.appliedJobs.length}/{group.jobs.length} applied</span>
+                        {isJobOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                      </div>
+                    </div>
+
+                    {/* Expandable jobs */}
+                    {isJobOpen && (
+                      <div className="px-4 pb-4 border-t border-black/5 dark:border-white/[0.08] pt-3">
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          {group.jobs.map((job: any, i: number) => {
+                            const applied = group.appliedJobs.includes(job.name);
+                            return (
+                              <div key={i} className={`rounded-xl p-3 transition-all ${
+                                applied
+                                  ? 'border border-green-500/20 bg-green-500/5'
+                                  : 'border border-black/5 dark:border-white/[0.08] bg-white/60 dark:bg-white/5'
+                              }`}>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      {applied
+                                        ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                                        : <Circle className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                                      }
+                                      <p className={`font-bold font-outfit text-sm ${applied ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
+                                        {job.name}
+                                      </p>
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-outfit mt-0.5 ml-5">{job.tip}</p>
+                                    <div className="flex items-center gap-2 mt-1 ml-5 flex-wrap">
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-outfit bg-green-500/10 text-green-700 dark:text-green-400">{job.type}</span>
+                                      {applied && <span className="text-xs text-green-500 font-outfit">✓ Applied</span>}
+                                    </div>
+                                  </div>
+                                  <a href={job.url} target="_blank" rel="noopener noreferrer"
+                                    className="flex-shrink-0 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-400 hover:text-orange-500">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    </a>
+                    )}
+                  </div>
                   );
                 })}
               </>
             )}
-            {/* Backend courses */}
-            {data?.sessions.flatMap(s => s.courses || []).length === 0 && !savedCareer?.courses.length ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8 font-outfit">
-                No courses seen yet. Ask the agent "show me courses"! 🎓
-              </p>
-            ) : (
-              data?.sessions.flatMap((s, si) =>
-                (s.courses || []).map((course: any, ci: number) => (
-                  <a key={`${si}-${ci}`} href={course.url} target="_blank" rel="noopener noreferrer"
-                    className="block bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-xl p-5 border border-black/5 dark:border-white/10 shadow hover:border-purple-500 transition-all"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white font-outfit">{course.title}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-outfit">
-                          {course.platform} · {s.chosenCareer}
-                        </p>
-                      </div>
-                      <span className="px-2 py-1 rounded text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">
-                        {course.level}
-                      </span>
-                    </div>
-                  </a>
-                ))
-              )
-            )}
           </div>
         )}
 
-        {/* ── Jobs Tab ── */}
-        {activeTab === 'jobs' && (
-          <div className="space-y-5">
-
-            {/* Applied Jobs */}
-            {savedCareer?.jobs && savedCareer.jobs.length > 0 ? (
-              <>
-                <div>
-                  <p className="text-xs text-orange-500 font-outfit font-semibold uppercase tracking-wider mb-3">
-                    Job Platforms — {savedCareer.title}
-                  </p>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {savedCareer.jobs.map((job: any, i: number) => {
-                      const applied = savedCareer.appliedJobs?.includes(job.name);
-                      return (
-                        <div key={i}
-                          className="rounded-2xl p-4 transition-all"
-                          style={applied
-                            ? { background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }
-                            : { background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.06)' }
-                          }
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                {applied
-                                  ? <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                  : <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                                }
-                                <p className={`font-bold font-outfit text-sm ${applied ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
-                                  {job.name} {applied && '✓ Applied'}
-                                </p>
-                              </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 font-outfit mt-1 ml-6">{job.tip}</p>
-                              <span className="inline-block ml-6 mt-1.5 px-2 py-0.5 rounded-full text-xs font-outfit"
-                                style={{ background: 'rgba(34,197,94,0.1)', color: '#16a34a' }}>
-                                {job.type}
-                              </span>
-                            </div>
-                            <a href={job.url} target="_blank" rel="noopener noreferrer"
-                              className="flex-shrink-0 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-400 hover:text-orange-500">
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <div className="rounded-2xl p-4 flex items-center gap-4"
-                  style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.07), rgba(16,185,129,0.04))', border: '1px solid rgba(34,197,94,0.2)' }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(34,197,94,0.15)' }}>
-                    <Briefcase className="w-5 h-5 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900 dark:text-white font-outfit text-sm">
-                      {savedCareer.appliedJobs?.length || 0} of {savedCareer.jobs.length} platforms applied
-                    </p>
-                    <p className="text-xs text-gray-500 font-outfit mt-0.5">
-                      Mark jobs applied from your Dashboard to track progress
-                    </p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                  style={{ background: 'rgba(249,115,22,0.1)' }}>
-                  <Briefcase className="w-8 h-8 text-orange-400" />
-                </div>
-                <p className="text-gray-500 dark:text-gray-400 font-outfit text-sm">
-                  No job data yet. Choose a career in the Career Guide first! 🚀
-                </p>
-                <button onClick={() => navigate('/guide')}
-                  className="mt-4 px-5 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit transition-all"
-                  style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>
-                  Go to Career Guide
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Chat History Tab ── */}
+        {/* ── CHATS ── */}
         {activeTab === 'chats' && (
           <div className="space-y-3">
-            {data?.recentChats.length === 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8 font-outfit">
-                No chats yet. Talk to the agent! 🎤
-              </p>
-            ) : (
-              data?.recentChats.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm font-outfit ${
-                    msg.role === 'user'
-                      ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-br-sm'
-                      : 'bg-white/70 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-black/5 dark:border-white/10'
-                  }`}>
-                    {msg.content}
-                  </div>
+            {!data?.recentChats?.length ? (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-8 font-outfit">No chats yet. Talk to the agent! 🎤</p>
+            ) : data.recentChats.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm font-outfit ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-br-sm'
+                    : 'bg-white/70 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-black/5 dark:border-white/10'
+                }`}>
+                  {msg.content}
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
         )}
 
