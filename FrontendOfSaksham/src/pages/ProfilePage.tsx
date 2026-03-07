@@ -346,16 +346,36 @@ export function ProfilePage() {
                       </button>
                     </div>
                     {entry.careers.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {entry.careers.map((c, i) => (
-                          <span key={i} className={`px-2.5 py-1 rounded-full text-xs font-outfit ${
-                            entry.selectedCareer?.title === c.title
-                              ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400 font-semibold'
-                              : 'bg-gray-100 dark:bg-white/[0.08] text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {entry.selectedCareer?.title === c.title ? '✓ ' : ''}{c.title}
-                          </span>
-                        ))}
+                      <div className="mt-3 space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {entry.careers.map((c, i) => (
+                            <span key={i} className={`px-2.5 py-1 rounded-full text-xs font-outfit ${
+                              entry.selectedCareer?.title === c.title
+                                ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400 font-semibold'
+                                : 'bg-gray-100 dark:bg-white/[0.08] text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {entry.selectedCareer?.title === c.title ? '✓ ' : ''}{c.title}
+                            </span>
+                          ))}
+                        </div>
+                        {entry.careers.length >= 2 && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              navigate('/compare', {
+                                state: {
+                                  careers: entry.careers,
+                                  interestId: entry._id,
+                                  transcript: entry.transcript,
+                                },
+                              });
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-outfit font-semibold text-white transition-all hover:scale-[1.02]"
+                            style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}
+                          >
+                            <Sparkles className="w-3 h-3" /> Compare Careers
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

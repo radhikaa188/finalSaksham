@@ -10,12 +10,12 @@ import { DashboardPage } from './pages/Dashboard';
 import Landing from './pages/Landing';
 import AboutPage from './pages/AboutPage';
 import ExperiencePage from './pages/ExperiencePage';
-import Layout from './components/Layout'
+import Layout from './components/Layout';
+import { CareerComparePage } from './pages/CareerComparePage';
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!CLERK_KEY) throw new Error('Missing Clerk Publishable Key');
 
-// Checks if onboarding is done → sends to /guide, else → /onboarding
 function SmartRedirect() {
   const { profile } = useUserContext();
   if (profile?.completedOnboarding) {
@@ -28,13 +28,12 @@ function ProtectedPages() {
   return (
     <UserProvider>
       <Routes>
-        {/* Landing's "Get Started" points here — smart redirect decides next step */}
         <Route path="/start" element={<SmartRedirect />} />
-
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/guide" element={<CareerGuidePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/compare" element={<CareerComparePage />} /> {/* ← NEW */}
       </Routes>
     </UserProvider>
   );
@@ -76,7 +75,7 @@ function App() {
       <ThemeProvider>
         <LanguageProvider>
           <Layout>
-          <ClerkProviderWithRoutes />
+            <ClerkProviderWithRoutes />
           </Layout>
         </LanguageProvider>
       </ThemeProvider>
