@@ -5,7 +5,9 @@ require('dotenv').config();
 const { clerkMiddleware, requireAuth } = require('@clerk/express');
 
 const app = express();
-
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
 // 1. CORS — sabse pehle
 const allowedOrigins = process.env.FRONTEND_URLS.split(',');
 
