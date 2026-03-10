@@ -15,7 +15,8 @@ import type { Career, Course, JobPlatform } from '../types';
 import { AgentChat } from '../components/AgentChat';
 import { speakText, stopSpeaking } from '../utils/tts'; // ← shared util
 
-const API_BASE = 'http://localhost:5000/api';
+// const API_BASE = 'http://localhost:5000/api';
+const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
 type RecordingState = 'idle' | 'recording' | 'ready';
 
 function generateRoadmap(careerTitle: string) {

@@ -2,8 +2,8 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 import { useUser, useAuth } from '@clerk/clerk-react';
 import type { UserProfile, SavedCareer } from '../types';
 
-const API_BASE = 'http://localhost:5000/api';
-
+// const API_BASE = 'http://localhost:5000/api';
+const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CareerSuggestion {

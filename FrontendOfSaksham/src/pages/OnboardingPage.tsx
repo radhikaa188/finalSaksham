@@ -6,8 +6,8 @@ import { Mic, MicOff, Check, ArrowLeft, Volume2, Loader2 } from 'lucide-react';
 import { TextClipPathReveal } from '../components/Textclippathreveal';
 import { speakText, stopSpeaking } from '../utils/tts';
 
-const API_BASE = 'http://localhost:5000/api';
-
+// const API_BASE = 'http://localhost:5000/api';
+const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
 const educationOptions = [
   { label: '10th Pass',     emoji: '📚', voiceMatch: ['10th', '10वीं', '10 वीं', 'tenth', 'दसवीं', 'दसवी', 'दस', 'matric', 'ten'] },
   { label: '12th Pass',     emoji: '🎒', voiceMatch: ['12th', '12वीं', '12 वीं', 'twelfth', 'बारहवीं', 'बारहवी', 'बारह', 'intermediate', 'twelve'] },
