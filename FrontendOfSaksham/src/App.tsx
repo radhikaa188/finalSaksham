@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { ClerkProvider, SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { UserProvider, useUserContext } from './contexts/UserContext';
@@ -12,9 +13,29 @@ import AboutPage from './pages/AboutPage';
 import ExperiencePage from './pages/ExperiencePage';
 import Layout from './components/Layout';
 import { CareerComparePage } from './pages/CareerComparePage';
+import { stopSpeaking } from './utils/tts';
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!CLERK_KEY) throw new Error('Missing Clerk Publishable Key');
+
+// ── Global effects: ping backend on load, stop TTS on every route change ──────
+function GlobalEffects() {
+  const location = useLocation();
+
+  // 1. Wake up Render backend the moment the app opens
+  //    so it's ready before the user reaches the onboarding TTS call
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/ping`).catch(() => {});
+  }, []);
+
+  // 2. Stop all speech on ANY route change
+  //    This prevents queued/delayed TTS from bleeding into the next page
+  useEffect(() => {
+    stopSpeaking();
+  }, [location.pathname]);
+
+  return null;
+}
 
 function SmartRedirect() {
   const { profile } = useUserContext();
@@ -33,7 +54,7 @@ function ProtectedPages() {
         <Route path="/guide" element={<CareerGuidePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/compare" element={<CareerComparePage />} /> {/* ← NEW */}
+        <Route path="/compare" element={<CareerComparePage />} />
       </Routes>
     </UserProvider>
   );
@@ -72,6 +93,7 @@ function ClerkProviderWithRoutes() {
 function App() {
   return (
     <BrowserRouter>
+      <GlobalEffects />  {/* Must be inside BrowserRouter to use useLocation */}
       <ThemeProvider>
         <LanguageProvider>
           <Layout>

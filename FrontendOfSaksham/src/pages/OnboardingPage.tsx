@@ -6,8 +6,8 @@ import { Mic, MicOff, Check, ArrowLeft, Volume2, Loader2 } from 'lucide-react';
 import { TextClipPathReveal } from '../components/Textclippathreveal';
 import { speakText, stopSpeaking } from '../utils/tts';
 
-// const API_BASE = 'http://localhost:5000/api';
 const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
+
 const educationOptions = [
   { label: '10th Pass',     emoji: '📚', voiceMatch: ['10th', '10वीं', '10 वीं', 'tenth', 'दसवीं', 'दसवी', 'दस', 'matric', 'ten'] },
   { label: '12th Pass',     emoji: '🎒', voiceMatch: ['12th', '12वीं', '12 वीं', 'twelfth', 'बारहवीं', 'बारहवी', 'बारह', 'intermediate', 'twelve'] },
@@ -103,12 +103,20 @@ export function OnboardingPage() {
   const [voiceError, setVoiceError]   = useState('');
   const [isSpeaking, setIsSpeaking]   = useState(false);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef        = useRef<Blob[]>([]);
+  const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
+  const chunksRef         = useRef<Blob[]>([]);
+  // Tracks which steps have already had their question spoken
+  // Prevents duplicate fires if the effect re-runs
+  const spokenSteps       = useRef<Set<number>>(new Set());
+  // True after the very first speak() completes — avoids racing on cold start
+  const ttsInitialized    = useRef(false);
 
   // ── Stop TTS on unmount (navigating away) ──────────────────────────────────
   useEffect(() => {
-    return () => { stopSpeaking(); };
+    return () => {
+      stopSpeaking();
+      spokenSteps.current.clear();
+    };
   }, []);
 
   // ── Ask question on each step change ──────────────────────────────────────
@@ -120,10 +128,20 @@ export function OnboardingPage() {
     setRecordingState('idle');
     setHeadlineKey(k => k + 1);
 
-    // step 0 needs a small delay to let stopSpeaking fully clear
-    // before starting new audio
-    const delay = step === 0 ? 300 : 0;
-    const timer = setTimeout(() => askQuestion(step), delay);
+    // Don't re-speak a question we already spoke this session
+    if (spokenSteps.current.has(step)) return;
+
+    // Give extra time on first ever speak so backend is warm
+    // (GlobalEffects in App.tsx pings /api/ping on load, so 600ms is usually enough)
+    const delay = ttsInitialized.current ? 100 : 700;
+
+    const timer = setTimeout(async () => {
+      // Mark as spoken immediately so a fast re-render can't double-fire
+      spokenSteps.current.add(step);
+      ttsInitialized.current = true;
+      await askQuestion(step);
+    }, delay);
+
     return () => clearTimeout(timer);
   }, [step]);
 
@@ -132,6 +150,14 @@ export function OnboardingPage() {
     const token = await getToken() || '';
     await speakText(stepQuestions[s], token);
     setIsSpeaking(false);
+  };
+
+  // Allow manual replay — clears the spokenSteps guard for this step
+  const replayQuestion = async () => {
+    if (isSpeaking) return;
+    spokenSteps.current.delete(step); // allow re-speak
+    spokenSteps.current.add(step);    // immediately re-add so effect doesn't re-fire
+    await askQuestion(step);
   };
 
   const startRecording = async () => {
@@ -203,6 +229,8 @@ export function OnboardingPage() {
     setLanguages(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
 
   const finish = (langs?: string[]) => {
+    stopSpeaking(); // kill any in-flight audio before navigating
+    spokenSteps.current.clear();
     setProfile({
       name: user?.firstName || 'Friend',
       education, city, goal,
@@ -300,7 +328,8 @@ export function OnboardingPage() {
             )}
             {voiceError && <p className="text-orange-400 text-xs font-outfit mt-2 text-center">{voiceError}</p>}
 
-            <button onClick={() => askQuestion(step)} disabled={isSpeaking}
+            {/* Replay button now uses replayQuestion() instead of askQuestion() directly */}
+            <button onClick={replayQuestion} disabled={isSpeaking}
               className="mt-3 text-xs text-white/20 hover:text-white/50 font-outfit flex items-center gap-1 transition-all disabled:opacity-30">
               <Volume2 className="w-3 h-3" /> Replay question
             </button>
@@ -316,7 +345,11 @@ export function OnboardingPage() {
             <div className="space-y-2">
               {educationOptions.map(opt => (
                 <button key={opt.label}
-                  onClick={() => { setEducation(opt.label); setTimeout(() => setStep(1), 400); }}
+                  onClick={() => {
+                    stopSpeaking(); // stop current question before advancing
+                    setEducation(opt.label);
+                    setTimeout(() => setStep(1), 400);
+                  }}
                   className="w-full p-3.5 rounded-2xl text-left text-sm font-outfit transition-all flex items-center gap-3"
                   style={education === opt.label
                     ? { background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.4)', color: '#fb923c' }
@@ -337,12 +370,12 @@ export function OnboardingPage() {
                 style={{ background: 'rgba(255,255,255,0.05)',
                   border: city ? '1px solid rgba(249,115,22,0.4)' : '1px solid rgba(255,255,255,0.08)', color: '#fff' }} />
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setStep(0)}
+                <button onClick={() => { stopSpeaking(); setStep(0); }}
                   className="px-4 py-3 rounded-2xl text-white/40 font-outfit text-sm flex items-center gap-2 hover:text-white/70 transition-all"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
-                <button onClick={() => setStep(2)} disabled={!city}
+                <button onClick={() => { stopSpeaking(); setStep(2); }} disabled={!city}
                   className="flex-1 py-3 rounded-2xl text-white font-semibold font-outfit flex items-center justify-center gap-2 transition-all disabled:opacity-30"
                   style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>
                   Continue
@@ -355,7 +388,11 @@ export function OnboardingPage() {
             <div className="space-y-3">
               {goalOptions.map(opt => (
                 <button key={opt.value}
-                  onClick={() => { setGoal(opt.value); setTimeout(() => setStep(3), 400); }}
+                  onClick={() => {
+                    stopSpeaking(); // stop current question before advancing
+                    setGoal(opt.value);
+                    setTimeout(() => setStep(3), 400);
+                  }}
                   className="w-full p-3.5 rounded-2xl text-left font-outfit transition-all"
                   style={goal === opt.value
                     ? { background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.4)' }
@@ -370,7 +407,7 @@ export function OnboardingPage() {
                   </div>
                 </button>
               ))}
-              <button onClick={() => setStep(1)}
+              <button onClick={() => { stopSpeaking(); setStep(1); }}
                 className="px-4 py-3 rounded-2xl text-white/40 font-outfit text-sm flex items-center gap-2 hover:text-white/70 transition-all mt-2"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <ArrowLeft className="w-4 h-4" /> Back
@@ -402,7 +439,7 @@ export function OnboardingPage() {
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setStep(2)}
+                <button onClick={() => { stopSpeaking(); setStep(2); }}
                   className="px-4 py-3 rounded-2xl text-white/40 font-outfit text-sm flex items-center gap-2 hover:text-white/70 transition-all"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                   <ArrowLeft className="w-4 h-4" /> Back
