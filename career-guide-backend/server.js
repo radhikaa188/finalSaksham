@@ -52,8 +52,9 @@ app.use('/api/courses', requireAuth(), require('./routes/courses'));
 app.use('/api/jobs',    requireAuth(), require('./routes/jobs'));
 
 // 6. Health check
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/ping', (req, res) => res.json({ ok: true })); // ← ADD THIS
 app.listen(process.env.PORT || 5000, () => 
   console.log(`Server running on port ${process.env.PORT || 5000}`)
 );
