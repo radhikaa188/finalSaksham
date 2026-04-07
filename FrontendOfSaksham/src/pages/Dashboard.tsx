@@ -7,7 +7,6 @@ import {
   ArrowRight, ArrowLeft, RotateCcw, User, TrendingUp, Clock
 } from 'lucide-react';
 
-// CORRECTED IMPORT PATH BASED ON YOUR IMAGE
 import AnimatedThemeToggler from '../components/AnimatedThemeToggler';
 
 export function DashboardPage() {
