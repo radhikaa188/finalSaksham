@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import type { Career, Course, JobPlatform } from '../types';
 import { AgentChat } from '../components/AgentChat';
-import { speakText, stopSpeaking } from '../utils/tts'; // ← shared util
+import AnimatedThemeToggler from '../components/AnimatedThemeToggler'; //
+import { speakText, stopSpeaking } from '../utils/tts';
 
-// const API_BASE = 'http://localhost:5000/api';
 const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
 type RecordingState = 'idle' | 'recording' | 'ready';
 
@@ -45,9 +45,6 @@ function timeAgo(iso: string, lang: string): string {
   return `${days}d ago`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Past Searches Panel
-// ─────────────────────────────────────────────────────────────────────────────
 function PastSearchesPanel({ history, loading, lang, onResume, onDelete }: {
   history: InterestEntry[]; loading: boolean; lang: string;
   onResume: (e: InterestEntry) => void; onDelete: (id: string) => void;
@@ -101,20 +98,6 @@ function PastSearchesPanel({ history, loading, lang, onResume, onDelete }: {
                       </span>
                     )}
                   </div>
-                  {(entry.completedCourses.length > 0 || entry.appliedJobs.length > 0) && (
-                    <div className="flex gap-2 mt-2">
-                      {entry.completedCourses.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 font-outfit">
-                          📚 {entry.completedCourses.length} courses done
-                        </span>
-                      )}
-                      {entry.appliedJobs.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-600 dark:text-green-400 font-outfit">
-                          💼 {entry.appliedJobs.length} jobs applied
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => onResume(entry)}
@@ -136,9 +119,6 @@ function PastSearchesPanel({ history, loading, lang, onResume, onDelete }: {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CareerGuidePage
-// ─────────────────────────────────────────────────────────────────────────────
 export function CareerGuidePage() {
   const { lang, setLang } = useLang();
   const {
@@ -164,14 +144,9 @@ export function CareerGuidePage() {
   });
   const goToStep = (n: number) => { setStep(n); sessionStorage.setItem('careerGuideStep', String(n)); };
 
-  // Load history from DB on mount
   useEffect(() => { fetchInterestHistory(); }, []);
+  useEffect(() => { return () => { stopSpeaking(); }; }, []);
 
-  useEffect(() => {
-  return () => { stopSpeaking(); };
-}, []);
-
-  // Welcome TTS — only once, only on step 0
   useEffect(() => {
     if (hasWelcomedRef.current || step !== 0) return;
     hasWelcomedRef.current = true;
@@ -192,7 +167,6 @@ export function CareerGuidePage() {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [highlightSection, setHighlightSection] = useState<'courses' | 'jobs' | null>(null);
 
-  // ── Session state (UI cache) — source of truth is DB via interestHistory ──
   const [transcript, setTranscript]       = useState<string>(() => { try { return sessionStorage.getItem('cg_transcript') || ''; } catch { return ''; } });
   const [careers, setCareers]             = useState<Career[]>(() => { try { return JSON.parse(sessionStorage.getItem('cg_careers') || '[]'); } catch { return []; } });
   const [selectedCareer, setSelectedCareer] = useState<Career | null>(() => { try { const s = sessionStorage.getItem('cg_selectedCareer'); return s ? JSON.parse(s) : null; } catch { return null; } });
@@ -205,17 +179,8 @@ export function CareerGuidePage() {
   useEffect(() => { try { sessionStorage.setItem('cg_courses', JSON.stringify(courses)); } catch {} }, [courses]);
   useEffect(() => { try { sessionStorage.setItem('cg_jobs', JSON.stringify(jobs)); } catch {} }, [jobs]);
 
-  // ── "Previous search" banner: pulled from DB (interestHistory[0]) ──────────
-  // This replaces the old sessionStorage-only approach — now survives refresh,
-  // new devices, browser clears, etc.
-  const latestDbEntry = interestHistory[0] ?? null;  // newest search from DB
-
-  // Only show the banner when: there's a DB entry AND it doesn't match the
-  // current active session (i.e. user came back fresh)
-  const showPrevBanner =
-    latestDbEntry !== null &&
-    step === 0 &&
-    !transcript; // if transcript is already loaded in session, banner is redundant
+  const latestDbEntry = interestHistory[0] ?? null;
+  const showPrevBanner = latestDbEntry !== null && step === 0 && !transcript;
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef        = useRef<Blob[]>([]);
@@ -238,9 +203,7 @@ export function CareerGuidePage() {
     } catch { alert('Could not access microphone. Please check permissions.'); }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && recordingState === 'recording') mediaRecorderRef.current.stop();
-  };
+  const stopRecording = () => { if (mediaRecorderRef.current && recordingState === 'recording') mediaRecorderRef.current.stop(); };
 
   const handleRecordClick = () => {
     if (recordingState === 'idle' || recordingState === 'ready') { setAudioBlob(null); setRecordingState('idle'); startRecording(); }
@@ -259,7 +222,7 @@ export function CareerGuidePage() {
       const res  = await fetch(`${API_BASE}/speech/transcribe`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
       const data = await res.json();
       setTranscript(data.transcript); setCareers(data.careers);
-      await saveNewSearch(data.transcript, data.careers); // ← persist to DB
+      await saveNewSearch(data.transcript, data.careers);
       goToStep(1);
     } catch { alert('Failed to process audio. Please try again.'); }
     finally { setLoading(false); setLoadingMessage(''); }
@@ -280,7 +243,7 @@ export function CareerGuidePage() {
       setCourses(cData.courses); setJobs(jData.platforms);
       const roadmap = generateRoadmap(career.title);
       setSavedCareer({ title: career.title, selectedAt: new Date().toISOString(), roadmap, completedCourses: [], appliedJobs: [], courses: cData.courses, jobs: jData.platforms, transcript });
-      if (activeHistoryId) await updateSearchWithCareer(activeHistoryId, career, cData.courses, jData.platforms, roadmap); // ← persist to DB
+      if (activeHistoryId) await updateSearchWithCareer(activeHistoryId, career, cData.courses, jData.platforms, roadmap);
       goToStep(2);
     } catch { alert('Failed to fetch data. Please try again.'); }
     finally { setLoading(false); setLoadingMessage(''); }
@@ -292,27 +255,24 @@ export function CareerGuidePage() {
     goToStep(0); setRecordingState('idle'); setAudioBlob(null);
   };
 
-  // Resume a DB history entry
- const handleResumeHistory = (entry: InterestEntry) => {
-  console.log('resuming entry:', JSON.stringify(entry, null, 2));
-  setTranscript(entry.transcript);
-  setCareers(entry.careers as Career[]);
-
-  if (entry.selectedCareer && (entry.courses || []).length > 0) {
-    setSelectedCareer(entry.selectedCareer as Career);
-    setCourses(entry.courses as Course[]);
-    setJobs((entry.jobs || []) as JobPlatform[]);
-    resumeFromHistory(entry);
-    setTimeout(() => goToStep(2), 50); // ← small delay so state settles
-  } else if (entry.selectedCareer) {
-    setSelectedCareer(entry.selectedCareer as Career);
-    resumeFromHistory(entry);
-    goToStep(1);
-  } else {
-    resumeFromHistory(entry);
-    goToStep(1);
-  }
-};
+  const handleResumeHistory = (entry: InterestEntry) => {
+    setTranscript(entry.transcript);
+    setCareers(entry.careers as Career[]);
+    if (entry.selectedCareer && (entry.courses || []).length > 0) {
+      setSelectedCareer(entry.selectedCareer as Career);
+      setCourses(entry.courses as Course[]);
+      setJobs((entry.jobs || []) as JobPlatform[]);
+      resumeFromHistory(entry);
+      setTimeout(() => goToStep(2), 50);
+    } else if (entry.selectedCareer) {
+      setSelectedCareer(entry.selectedCareer as Career);
+      resumeFromHistory(entry);
+      goToStep(1);
+    } else {
+      resumeFromHistory(entry);
+      goToStep(1);
+    }
+  };
 
   const handleAgentAction = (action: string, payload?: any) => {
     switch (action) {
@@ -332,28 +292,31 @@ export function CareerGuidePage() {
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-20">
 
-        {step > 0 && (
-          <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6">
+          {step > 0 ? (
             <button onClick={() => step === 1 ? goToStep(0) : goToStep(1)}
               className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors font-outfit">
               <ArrowLeft className="w-4 h-4" />
               {step === 1 ? (lang === 'hi' ? 'वापस जाएं' : 'Back to interests') : (lang === 'hi' ? 'Career बदलें' : 'Change career')}
             </button>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 text-orange-600 dark:text-orange-400 text-sm font-medium transition-all ${lang === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
-                <span>{lang === 'en' ? '🇮🇳' : '🇺🇸'}</span>
-                <span>{lang === 'en' ? 'हिन्दी' : 'English'}</span>
-              </button>
-              <button onClick={() => navigate('/dashboard')} title="My Dashboard"
-                className="w-9 h-9 rounded-full flex items-center justify-center border border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10 transition-all">
-                {profile?.name ? <span className="text-sm font-bold text-orange-600 dark:text-orange-400 font-outfit">{profile.name[0].toUpperCase()}</span> : <User className="w-4 h-4 text-orange-500" />}
-              </button>
-            </div>
+          ) : <div />} {/* spacer */}
+          
+          <div className="flex items-center gap-3">
+            <AnimatedThemeToggler className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300" />
+            
+            <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-full border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 text-orange-600 dark:text-orange-400 text-sm font-medium transition-all ${lang === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+              <span>{lang === 'en' ? '🇮🇳' : '🇺🇸'}</span>
+              <span>{lang === 'en' ? 'हिन्दी' : 'English'}</span>
+            </button>
+            
+            <button onClick={() => navigate('/dashboard')} title="My Dashboard"
+              className="w-9 h-9 rounded-full flex items-center justify-center border border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10 transition-all">
+              {profile?.name ? <span className="text-sm font-bold text-orange-600 dark:text-orange-400 font-outfit">{profile.name[0].toUpperCase()}</span> : <User className="w-4 h-4 text-orange-500" />}
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Step indicator */}
         <div className="mb-12">
           <div className="flex items-center justify-center gap-4">
             {[0, 1, 2].map(i => (
@@ -393,7 +356,6 @@ export function CareerGuidePage() {
               language={lang}
               profile={profile}
               isSpeaking={isSpeaking}
-              // ── FIX: prev banner now uses DB entry, not sessionStorage ──
               prevEntry={showPrevBanner ? latestDbEntry : null}
               onResumePrev={() => latestDbEntry && handleResumeHistory(latestDbEntry)}
               onDeletePrev={() => latestDbEntry && deleteHistoryEntry(latestDbEntry._id)}
@@ -408,8 +370,6 @@ export function CareerGuidePage() {
                 setIsSpeaking(false);
               }}
             />
-
-            {/* Past Searches Panel — all history, collapsible */}
             <div className="mt-6">
               <PastSearchesPanel
                 history={interestHistory}
@@ -444,9 +404,6 @@ export function CareerGuidePage() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 0
-// ─────────────────────────────────────────────────────────────────────────────
 function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, profile, isSpeaking,
   onReplayWelcome, onToggleLang, prevEntry, onResumePrev, onDeletePrev }: any) {
 
@@ -486,14 +443,8 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
             </div>
           </div>
         )}
-        <button onClick={onToggleLang}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 text-orange-600 dark:text-orange-400 text-sm font-medium transition-all font-outfit">
-          <span>{language === 'en' ? '🇮🇳' : '🇺🇸'}</span>
-          <span className="hidden sm:inline">{language === 'en' ? 'हिन्दी' : 'English'}</span>
-        </button>
       </div>
 
-      {/* ── Previous search banner — now DB-backed ── */}
       {prevEntry && (
         <div className="rounded-2xl px-5 py-4 flex items-center justify-between gap-3"
           style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(16,185,129,0.05))', border: '1px solid rgba(34,197,94,0.25)' }}>
@@ -502,19 +453,12 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
               {language === 'hi' ? '✅ पिछली search' : '✅ Previous search'}
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-200 font-outfit truncate">"{prevEntry.transcript}"</p>
-            {prevEntry.selectedCareer && (
-              <p className="text-xs text-orange-500 font-outfit mt-0.5 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> {prevEntry.selectedCareer.title}
-              </p>
-            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={onDeletePrev} title={language === 'hi' ? 'Delete करें' : 'Delete search'}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-all">
+            <button onClick={onDeletePrev} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-all">
               <Trash2 className="w-4 h-4" />
             </button>
-            <button onClick={onResumePrev}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit transition-all hover:shadow-lg"
+            <button onClick={onResumePrev} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit transition-all hover:shadow-lg"
               style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', boxShadow: '0 4px 14px rgba(34,197,94,0.3)' }}>
               {language === 'hi' ? 'जारी रखें' : 'Continue'} <ArrowRight className="w-4 h-4" />
             </button>
@@ -523,14 +467,11 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
       )}
 
       <div className="rounded-3xl overflow-hidden shadow-2xl bg-white dark:bg-[#0f1117] border border-orange-500/15 dark:border-white/8">
-  <div className="px-8 pt-8 pb-6 text-center bg-gradient-to-br from-orange-500/5 to-pink-500/3 dark:from-orange-500/8 dark:to-pink-500/5">
-  
-          <h2 className="text-3xl font-bold text-gray-900 font-outfit mb-2 leading-tight">
-            {profile
-              ? <>{profile.name}, <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">अपने interests बताइए</span> 🎤</>
-              : <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">Tell us about yourself</span>}
+        <div className="px-8 pt-8 pb-6 text-center bg-gradient-to-br from-orange-500/5 to-pink-500/3 dark:from-orange-500/8 dark:to-pink-500/5">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white font-outfit mb-2 leading-tight">
+            {profile ? <>{profile.name}, <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">अपने interests बताइए</span> 🎤</> : "Tell us about yourself"}
           </h2>
-          <p className="text-gray-600 font-outfit text-base leading-relaxed max-w-md mx-auto">
+          <p className="text-gray-600 dark:text-gray-400 font-outfit text-base leading-relaxed max-w-md mx-auto">
             {language === 'hi' ? 'आपको क्या काम अच्छा लगता है? किस field में आगे जाना चाहते हैं?' : 'What kind of work do you enjoy? What field interests you most?'}
           </p>
         </div>
@@ -538,17 +479,14 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
         <div className="flex justify-center pt-4 pb-2 px-8">
           <button onClick={onReplayWelcome} disabled={isSpeaking}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-outfit text-sm font-semibold transition-all disabled:opacity-50"
-            style={isSpeaking
-              ? { background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#7c3aed' }
-              : { background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', color: '#ea580c' }}>
+            style={isSpeaking ? { background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', color: '#7c3aed' } : { background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', color: '#ea580c' }}>
             {isSpeaking ? <><Volume2 className="w-4 h-4 animate-pulse" /> AI बोल रही है...</> : <><Volume2 className="w-4 h-4" /> {language === 'hi' ? 'निर्देश सुनें' : 'Play instructions'}</>}
           </button>
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 px-8 pt-3 pb-6">
           {examplePrompts.map((p, i) => (
-            <span key={i} className="px-3 py-1.5 rounded-full text-sm font-outfit font-medium text-gray-600"
-              style={{ background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.18)' }}>
+            <span key={i} className="px-3 py-1.5 rounded-full text-sm font-outfit font-medium text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/5">
               💬 {p}
             </span>
           ))}
@@ -558,10 +496,8 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
           <div className="relative mb-4">
             {recordingState === 'recording' && (
               <>
-                <div className="absolute inset-0 rounded-full animate-ping opacity-20"
-                  style={{ background: 'radial-gradient(circle, #ef4444, transparent)', transform: 'scale(1.8)' }} />
-                <div className="absolute inset-0 rounded-full animate-pulse opacity-30"
-                  style={{ background: 'radial-gradient(circle, #ef4444, transparent)', transform: 'scale(1.4)' }} />
+                <div className="absolute inset-0 rounded-full animate-ping opacity-20 bg-red-500 scale-[1.8]" />
+                <div className="absolute inset-0 rounded-full animate-pulse opacity-30 bg-red-500 scale-[1.4]" />
               </>
             )}
             <button onClick={onRecordClick} disabled={isSpeaking}
@@ -573,61 +509,18 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
               {recordingState === 'recording' ? <MicOff className="w-12 h-12 text-white" /> : <Mic className="w-12 h-12 text-white" />}
             </button>
           </div>
-
           <p className={`text-base font-semibold font-outfit mb-1 ${recordingState === 'recording' ? 'text-red-500' : recordingState === 'ready' ? 'text-green-600' : isSpeaking ? 'text-purple-500' : 'text-gray-700 dark:text-gray-300'}`}>
             {micLabel}
           </p>
-          {recordingState === 'idle' && !isSpeaking && (
-            <p className="text-sm text-gray-400 font-outfit text-center max-w-xs">
-              {language === 'hi' ? 'अपनी hobby, skills, या पसंदीदा काम के बारे में बताइए' : 'Mention your hobbies, skills, or any work you enjoy'}
-            </p>
-          )}
-
-          {hasAudio && (
-            <div className="flex gap-3 mt-6">
-              <button onClick={onRecordClick}
-                className="px-5 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-orange-400 hover:text-orange-500 transition-all text-sm font-outfit font-medium">
-                {language === 'hi' ? 'फिर से बोलें' : 'Record again'}
-              </button>
-              <button onClick={onSubmit}
-                className="px-6 py-2.5 rounded-xl text-white font-semibold text-sm flex items-center gap-2 hover:shadow-lg transition-all font-outfit"
-                style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)', boxShadow: '0 4px 20px rgba(249,115,22,0.3)' }}>
-                <Sparkles className="w-4 h-4" />
-                {language === 'hi' ? 'Career सुझाव पाएं' : 'Get Career Suggestions'}
-              </button>
-            </div>
-          )}
         </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: Mic,      label: language === 'hi' ? '१. बोलें'       : '1. Speak',       desc: language === 'hi' ? 'अपने interests बताएं' : 'Tell us your interests', color: 'text-orange-500', bg: 'bg-orange-500/10' },
-          { icon: Sparkles, label: language === 'hi' ? '२. AI मैच करे'  : '2. AI Matches',  desc: language === 'hi' ? 'बेस्ट careers ढूंढें' : 'We find best careers',  color: 'text-pink-500',   bg: 'bg-pink-500/10'   },
-          { icon: BookOpen, label: language === 'hi' ? '३. रोडमैप पाएं' : '3. Get Roadmap', desc: language === 'hi' ? 'Courses + jobs तैयार' : 'Courses + jobs ready',  color: 'text-purple-500', bg: 'bg-purple-500/10'  },
-        ].map((item, i) => (
-          <div key={i} className="bg-white/60 dark:bg-white/5 rounded-2xl p-4 text-center border border-black/5 dark:border-white/8 shadow-sm">
-            <div className={`w-9 h-9 ${item.bg} rounded-xl flex items-center justify-center mx-auto mb-2`}>
-              <item.icon className={`w-4 h-4 ${item.color}`} />
-            </div>
-            <p className="text-sm font-bold text-gray-800 dark:text-white font-outfit">{item.label}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-outfit mt-0.5">{item.desc}</p>
-          </div>
-        ))}
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 1
-// ─────────────────────────────────────────────────────────────────────────────
-function Step1({ transcript, careers, onSelectCareer, onBack, language, onToggleLang, selectedCareer, onContinueToRoadmap }: any) {
+function Step1({ transcript, careers, onSelectCareer, onBack, language, selectedCareer, onContinueToRoadmap }: any) {
   const careerEmojis   = ['🚀', '💡', '🎯', '⚡', '🌟'];
-  const careerBorders  = ['hover:border-orange-400','hover:border-blue-400','hover:border-green-400','hover:border-yellow-400','hover:border-purple-400'];
-  const careerAccents  = ['text-orange-500','text-blue-500','text-green-500','text-yellow-500','text-purple-500'];
   const gradients      = ['linear-gradient(90deg,#f97316,#ec4899)','linear-gradient(90deg,#3b82f6,#8b5cf6)','linear-gradient(90deg,#22c55e,#14b8a6)','linear-gradient(90deg,#eab308,#f97316)','linear-gradient(90deg,#8b5cf6,#ec4899)'];
-  const badgeBg        = ['rgba(249,115,22,0.1)','rgba(59,130,246,0.1)','rgba(34,197,94,0.1)','rgba(234,179,8,0.1)','rgba(139,92,246,0.1)'];
 
   return (
     <div className="animate-fadeUp space-y-6">
@@ -644,36 +537,19 @@ function Step1({ transcript, careers, onSelectCareer, onBack, language, onToggle
         </div>
       </div>
 
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white font-outfit">
-            {language === 'hi'
-              ? <>आपके लिए <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">बेस्ट Careers</span> 🎯</>
-              : <>Best <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">Career Options</span> for You 🎯</>}
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm font-outfit mt-1">
-            {language === 'hi' ? 'एक career चुनें और अपना roadmap पाएं' : 'Tap one to get your personalized roadmap'}
-          </p>
-        </div>
-        <button onClick={onToggleLang}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 text-orange-600 dark:text-orange-400 text-sm font-medium transition-all font-outfit mt-1">
-          <span>{language === 'en' ? '🇮🇳' : '🇺🇸'}</span>
-          <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
-        </button>
-      </div>
+      <h2 className="text-3xl font-bold text-gray-900 dark:text-white font-outfit">
+        {language === 'hi' ? <>आपके लिए <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">बेस्ट Careers</span> 🎯</> : <>Best <span className="bg-gradient-to-r from-orange-500 to-pink-600 bg-clip-text text-transparent">Career Options</span> for You 🎯</>}
+      </h2>
 
       {selectedCareer && (
         <div className="rounded-2xl px-5 py-4 flex items-center justify-between gap-3"
           style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(236,72,153,0.05))', border: '1px solid rgba(249,115,22,0.25)' }}>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-orange-500 font-outfit uppercase tracking-wider mb-0.5">
-              {language === 'hi' ? '✅ आपका चुना career' : '✅ Your selected career'}
-            </p>
+            <p className="text-xs font-bold text-orange-500 font-outfit uppercase tracking-wider mb-0.5">{language === 'hi' ? '✅ आपका चुना career' : '✅ Your selected career'}</p>
             <p className="text-base font-bold text-gray-900 dark:text-white font-outfit truncate">{selectedCareer.title}</p>
           </div>
-          <button onClick={onContinueToRoadmap}
-            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit transition-all hover:shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)', boxShadow: '0 4px 14px rgba(249,115,22,0.3)' }}>
+          <button onClick={onContinueToRoadmap} className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-semibold text-sm font-outfit"
+            style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>
             {language === 'hi' ? 'Roadmap देखें' : 'View Roadmap'} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -682,116 +558,73 @@ function Step1({ transcript, careers, onSelectCareer, onBack, language, onToggle
       <div className="grid gap-3">
         {careers.map((career: Career, idx: number) => (
           <button key={idx} onClick={() => onSelectCareer(career)}
-            className={`group text-left rounded-2xl bg-white dark:bg-white/5 border border-black/8 dark:border-white/10 ${careerBorders[idx % 5]} transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 overflow-hidden`}>
+            className="group text-left rounded-2xl bg-white dark:bg-white/5 border border-black/8 dark:border-white/10 transition-all duration-200 hover:shadow-xl overflow-hidden">
             <div className="h-1 w-full" style={{ background: gradients[idx % 5] }} />
             <div className="p-5 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg" style={{ background: badgeBg[idx % 5] }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg bg-gray-50 dark:bg-white/10">
                 <span>{careerEmojis[idx % 5]}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white font-outfit leading-tight">{career.title}</h3>
-                  <ArrowRight className={`w-5 h-5 flex-shrink-0 mt-0.5 transition-all group-hover:translate-x-1 ${careerAccents[idx % 5]} opacity-0 group-hover:opacity-100`} />
-                </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white font-outfit leading-tight">{career.title}</h3>
                 <p className="text-gray-600 dark:text-gray-300 text-sm font-outfit mt-1.5 leading-relaxed">{career.description}</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold font-outfit ${career.type.toLowerCase().includes('freelance') ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-green-500/10 text-green-600 dark:text-green-400'}`}>
-                    {career.type.toLowerCase().includes('freelance') ? '💻 Freelance' : '🏢 Job'}
-                  </span>
-                  <span className="text-xs text-gray-400 font-outfit">{language === 'hi' ? 'चुनने के लिए tap करें →' : 'Tap to explore →'}</span>
-                </div>
               </div>
             </div>
           </button>
         ))}
       </div>
-
-      <button onClick={onBack}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-orange-400 hover:text-orange-500 transition-all text-sm font-outfit font-medium">
+      <button onClick={onBack} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-orange-500 text-sm font-outfit font-medium">
         <ArrowLeft className="w-4 h-4" />{language === 'hi' ? 'वापस जाएं' : 'Go back'}
       </button>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2
-// ─────────────────────────────────────────────────────────────────────────────
-function Step2({ selectedCareer, courses, jobs, onChangeCareer, onStartOver, onGoToDashboard, language, transcript, highlightSection, coursesRef, jobsRef, onAgentAction }: any) {
+function Step2({ selectedCareer, courses, jobs, onStartOver, onGoToDashboard, language, transcript, highlightSection, coursesRef, jobsRef, onAgentAction }: any) {
   return (
     <div className="animate-fadeUp space-y-8">
       <div className="text-center">
         <span className="inline-block px-6 py-3 rounded-full bg-gradient-to-r from-orange-500/20 to-pink-500/20 border border-orange-500/30 text-orange-700 dark:text-orange-300 font-bold text-lg font-outfit">
           {selectedCareer.title}
         </span>
-        <p className="text-gray-400 dark:text-gray-500 text-sm font-outfit mt-2">Your personalized learning path is ready 🎉</p>
       </div>
 
-      <div ref={coursesRef} className={`transition-all duration-500 rounded-2xl p-1 ${highlightSection === 'courses' ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
+      <div ref={coursesRef} className={`transition-all duration-500 rounded-2xl p-1 ${highlightSection === 'courses' ? 'ring-2 ring-purple-500' : ''}`}>
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-purple-500" />
-          <h2 className={`text-xl font-bold text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>{t('learn_courses', language)}</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white font-outfit">{t('learn_courses', language)}</h2>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           {courses.map((course: Course, idx: number) => (
-            <a key={idx} href={course.url} target="_blank" rel="noopener noreferrer"
-              className="group p-5 rounded-xl bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/5 dark:border-white/10 hover:border-purple-500 dark:hover:border-purple-500 transition-all hover:shadow-lg hover:-translate-y-1">
-              <div className="flex items-start gap-3">
-                {course.platform.toLowerCase().includes('youtube') ? <Youtube className="w-6 h-6 text-red-500 flex-shrink-0" /> : <Globe className="w-6 h-6 text-purple-500 flex-shrink-0" />}
-                <div className="flex-1">
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-1 font-outfit text-sm">{course.title}</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{course.platform}</p>
-                  <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">{course.level}</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-purple-500 transition-colors flex-shrink-0" />
-              </div>
+            <a key={idx} href={course.url} target="_blank" rel="noopener noreferrer" className="p-5 rounded-xl bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 hover:border-purple-500 transition-all">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-1 font-outfit text-sm">{course.title}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{course.platform}</p>
             </a>
           ))}
         </div>
       </div>
 
-      <div ref={jobsRef} className={`transition-all duration-500 rounded-2xl p-1 ${highlightSection === 'jobs' ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
+      <div ref={jobsRef} className={`transition-all duration-500 rounded-2xl p-1 ${highlightSection === 'jobs' ? 'ring-2 ring-green-500' : ''}`}>
         <div className="flex items-center gap-2 mb-4">
           <Briefcase className="w-5 h-5 text-green-500" />
-          <h2 className={`text-xl font-bold text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>{t('get_hired', language)}</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white font-outfit">{t('get_hired', language)}</h2>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           {jobs.map((job: JobPlatform, idx: number) => (
-            <a key={idx} href={job.url} target="_blank" rel="noopener noreferrer"
-              className="group p-5 rounded-xl bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/5 dark:border-white/10 hover:border-green-500 dark:hover:border-green-500 transition-all hover:shadow-lg hover:-translate-y-1">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-1 font-outfit text-sm">{job.name}</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{job.tip}</p>
-                  <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">{job.type}</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-green-500 transition-colors flex-shrink-0" />
-              </div>
+            <a key={idx} href={job.url} target="_blank" rel="noopener noreferrer" className="p-5 rounded-xl bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 hover:border-green-500 transition-all">
+              <h3 className="font-bold text-gray-900 dark:text-white font-outfit text-sm">{job.name}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{job.tip}</p>
             </a>
           ))}
         </div>
       </div>
 
-      <div className="rounded-2xl p-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-        style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.12)' }}>
+      <div className="rounded-2xl p-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-orange-50/50 dark:bg-white/5 border border-orange-100 dark:border-white/5">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-800 dark:text-white font-outfit">
-            {language === 'hi' ? '✅ Career save हो गया!' : '✅ Career saved to your Dashboard!'}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 font-outfit mt-0.5">
-            {language === 'hi' ? 'Dashboard पर अपना progress track करें' : 'Track your progress, mark courses done & jobs applied'}
-          </p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-white font-outfit">{language === 'hi' ? '✅ Career save हो गया!' : '✅ Career saved to your Dashboard!'}</p>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <button onClick={onStartOver}
-            className={`px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-orange-400 hover:text-orange-500 transition-all text-sm flex items-center gap-1.5 ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
-            <RotateCcw className="w-3.5 h-3.5" />{language === 'hi' ? 'नया search' : 'New search'}
-          </button>
-          <button onClick={onGoToDashboard}
-            className={`px-4 py-2.5 rounded-xl text-white font-semibold hover:shadow-lg transition-all text-sm flex items-center gap-2 ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}
-            style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>
-            {language === 'hi' ? 'Dashboard देखें' : 'Go to Dashboard'} <ArrowRight className="w-4 h-4" />
-          </button>
+        <div className="flex gap-2">
+          <button onClick={onStartOver} className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-sm font-outfit"><RotateCcw className="w-3.5 h-3.5 inline mr-1" />{language === 'hi' ? 'नया search' : 'New search'}</button>
+          <button onClick={onGoToDashboard} className="px-4 py-2.5 rounded-xl text-white font-semibold text-sm" style={{ background: 'linear-gradient(135deg, #f97316, #ec4899)' }}>{language === 'hi' ? 'Dashboard देखें' : 'Go to Dashboard'} <ArrowRight className="w-4 h-4 inline ml-1" /></button>
         </div>
       </div>
 

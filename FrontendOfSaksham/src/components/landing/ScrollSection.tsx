@@ -187,14 +187,14 @@ function FeatureCard({ feature, index }: FeatureCardProps): JSX.Element {
           height: "100%",
           padding: "clamp(24px, 3vw, 40px)",
           background: hovered
-            ? "rgba(255,255,255,0.07)"
-            : "rgba(255,255,255,0.03)",
-          border: `1px solid ${hovered ? "rgba(255,122,61,0.35)" : "rgba(255,255,255,0.07)"}`,
+            ? "var(--card-bg-hover)"
+            : "var(--card-bg)",
+          border: `1px solid ${hovered ? "var(--card-border-hover)" : "var(--card-border)"}`,
           borderRadius: "20px",
           transition: "all 0.4s ease",
           boxShadow: hovered
-            ? `0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 40px rgba(255,122,61,0.08)`
-            : "0 8px 32px rgba(0,0,0,0.2)",
+            ? "var(--card-shadow-hover)"
+            : "var(--card-shadow)",
           transform: hovered ? "translateY(-8px) scale(1.01)" : "none",
           cursor: "default",
         }}
@@ -354,7 +354,7 @@ function FeatureCard({ feature, index }: FeatureCardProps): JSX.Element {
                 : "'Cormorant Garamond', serif",
             fontWeight: 500,
             fontSize: "clamp(1.4rem, 2vw, 1.8rem)",
-            color: hovered ? "#ffffff" : "#f0f0f4",
+            color: hovered ? "var(--text-heading-hover)" : "var(--text-heading)",
             lineHeight: 1.2,
             marginBottom: 10,
             letterSpacing: lang === "hi" ? "0" : "-0.02em",
@@ -391,7 +391,7 @@ function FeatureCard({ feature, index }: FeatureCardProps): JSX.Element {
             fontWeight: 300,
             fontSize: "0.92rem",
             lineHeight: 1.75,
-            color: hovered ? "#b8bcd4" : "#878aac",
+            color: hovered ? "var(--text-primary)" : "var(--text-muted)",
             margin: 0,
             transition: "color 0.3s ease",
           }}
@@ -491,7 +491,7 @@ function SectionHeader(): JSX.Element {
               : "'Cormorant Garamond', serif",
           fontWeight: 300,
           fontSize: "clamp(2.8rem, 6vw, 5rem)",
-          color: "#f5f5f7",
+          color: "var(--text-primary)",
           lineHeight: 1.05,
           letterSpacing: lang === "hi" ? "0" : "-0.03em",
           margin: 0,
@@ -553,7 +553,7 @@ function SectionHeader(): JSX.Element {
 }
 
 // ─── CTA SECTION ─────────────────────────────────────────────────────────────
-function CTASection(): JSX.Element {
+export function CTASection(): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState<boolean>(false);
   const [hovered, setHovered] = useState<boolean>(false);
@@ -628,7 +628,7 @@ function CTASection(): JSX.Element {
               : "'Cormorant Garamond', serif",
           fontWeight: 300,
           fontSize: "clamp(1.8rem, 3vw, 2.8rem)",
-          color: "#f5f5f7",
+          color: "var(--text-heading)",
           marginBottom: 12,
           fontStyle: lang === "hi" ? "normal" : "italic",
           position: "relative",
@@ -643,7 +643,7 @@ function CTASection(): JSX.Element {
           fontFamily: "'Jost', sans-serif",
           fontWeight: 300,
           fontSize: "0.9rem",
-          color: "rgba(160,163,189,0.7)",
+          color: "var(--text-muted)",
           letterSpacing: "0.04em",
           marginBottom: 40,
           position: "relative",
@@ -669,8 +669,8 @@ function CTASection(): JSX.Element {
         <button
           style={{
             background: hovered
-              ? "linear-gradient(135deg, #ff8c52 0%, #ff6a35 100%)"
-              : "linear-gradient(135deg, #ff7a3d 0%, #ff5e2e 100%)",
+              ? "#ea580c"
+              : "#f97316",
             color: "white",
             fontFamily: "'Jost', sans-serif",
             fontWeight: 600,
@@ -679,8 +679,8 @@ function CTASection(): JSX.Element {
             border: "none",
             borderRadius: "99px",
             boxShadow: hovered
-              ? "0 20px 50px rgba(255,122,61,0.5), 0 0 0 6px rgba(255,122,61,0.1)"
-              : "0 10px 30px rgba(255,122,61,0.25)",
+              ? "0 20px 50px rgba(249,115,22,0.5), 0 0 0 6px rgba(249,115,22,0.1)"
+              : "0 10px 30px rgba(249,115,22,0.25)",
             cursor: "pointer",
             textTransform: "uppercase" as const,
             letterSpacing: "0.16em",
@@ -699,7 +699,8 @@ function CTASection(): JSX.Element {
             fontFamily: "'Jost', sans-serif",
             fontWeight: 300,
             fontSize: "0.78rem",
-            color: "rgba(160,163,189,0.5)",
+            color: "var(--text-muted)",
+            opacity: 0.8,
             letterSpacing: "0.06em",
           }}
         >
@@ -742,7 +743,7 @@ export default function ScrollSection(): JSX.Element {
       <section
         id="features"
         style={{
-          background: "#080a14",
+          background: "var(--section-bg)",
           padding: "clamp(80px, 10vw, 140px) 24px",
           position: "relative",
           overflow: "hidden",
@@ -814,8 +815,6 @@ export default function ScrollSection(): JSX.Element {
               <FeatureCard key={idx} feature={feature} index={idx} />
             ))}
           </div>
-
-          <CTASection />
         </div>
       </section>
     </>

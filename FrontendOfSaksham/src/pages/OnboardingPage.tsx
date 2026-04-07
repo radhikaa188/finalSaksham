@@ -5,9 +5,10 @@ import { useUser, useAuth } from '@clerk/clerk-react';
 import { Mic, MicOff, Check, ArrowLeft, Volume2, Loader2 } from 'lucide-react';
 import { TextClipPathReveal } from '../components/Textclippathreveal';
 import { speakText, stopSpeaking } from '../utils/tts';
-
-const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
-
+import AnimatedThemeToggler from '../components/AnimatedThemeToggler';
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:5000/api';
 const educationOptions = [
   { label: '10th Pass',     emoji: '📚', voiceMatch: ['10th', '10वीं', '10 वीं', 'tenth', 'दसवीं', 'दसवी', 'दस', 'matric', 'ten'] },
   { label: '12th Pass',     emoji: '🎒', voiceMatch: ['12th', '12वीं', '12 वीं', 'twelfth', 'बारहवीं', 'बारहवी', 'बारह', 'intermediate', 'twelve'] },
@@ -90,8 +91,11 @@ export function OnboardingPage() {
   const { getToken }  = useAuth();
   const navigate      = useNavigate();
 
-  if (profile?.completedOnboarding) { navigate('/guide'); return null; }
-
+  useEffect(() => {
+    if (profile?.completedOnboarding) {
+      navigate('/guide');
+    }
+  }, [profile, navigate]);
   const [step, setStep]               = useState(0);
   const [headlineKey, setHeadlineKey] = useState(0);
   const [education, setEducation]     = useState('');
@@ -254,6 +258,11 @@ export function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[#080a12] flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      <div className="absolute top-6 right-6 z-50">
+        <AnimatedThemeToggler 
+          className="p-2 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/20 transition-all" 
+        />
+      </div>
       <div className="absolute top-0 left-0 w-96 h-96 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(249,115,22,0.1) 0%, transparent 70%)' }} />
       <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full pointer-events-none"

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useUserContext } from '../contexts/UserContext';
 import { useCareerComparison } from '../hooks/useCareerComparison';
 import type { CareerComparisonData } from '../hooks/useCareerComparison';
+import AnimatedThemeToggler from '../components/AnimatedThemeToggler';
 import {
   ArrowLeft, Sparkles, CheckCircle2, XCircle, TrendingUp,
   MapPin, Clock, Briefcase, BookOpen, Star, Zap, Trophy,
@@ -70,7 +71,6 @@ export function CareerComparePage() {
   };
 
   const handleChooseCareer = (careerTitle: string) => {
-    // Find the matching history entry and resume from it
     const entry = interestHistory.find(e =>
       e._id === state?.interestId && e.selectedCareer?.title === careerTitle
     );
@@ -104,10 +104,15 @@ export function CareerComparePage() {
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
-        {/* Back */}
-        <button onClick={() => navigate('/profile')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors font-outfit">
-          <ArrowLeft className="w-4 h-4" /> Back to Profile
-        </button>
+        {/* Top Actions Row */}
+        <div className="flex items-center justify-between">
+          <button onClick={() => navigate('/profile')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-orange-500 transition-colors font-outfit">
+            <ArrowLeft className="w-4 h-4" /> Back to Profile
+          </button>
+          
+          {/* Theme Toggler Added Here */}
+          <AnimatedThemeToggler />
+        </div>
 
         {/* Header */}
         <div className="text-center space-y-2">

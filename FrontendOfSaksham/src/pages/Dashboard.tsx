@@ -7,6 +7,9 @@ import {
   ArrowRight, ArrowLeft, RotateCcw, User, TrendingUp, Clock
 } from 'lucide-react';
 
+// CORRECTED IMPORT PATH BASED ON YOUR IMAGE
+import AnimatedThemeToggler from '../components/AnimatedThemeToggler';
+
 export function DashboardPage() {
   const { profile, savedCareer, updateRoadmapStep, addCompletedCourse, addAppliedJob, clearData } = useUserContext();
   const { lang } = useLang();
@@ -44,10 +47,16 @@ export function DashboardPage() {
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 dark:text-white/40 dark:hover:text-white/70 transition-colors font-outfit">
             <ArrowLeft className="w-4 h-4" /> Back to Career Guide
           </button>
-          <button onClick={() => navigate('/profile')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-gray-500 hover:text-gray-800 dark:text-white/50 dark:hover:text-white/80 transition-all font-outfit text-sm ${card}`}>
-            <User className="w-4 h-4" /> Profile
-          </button>
+          
+          <div className="flex items-center gap-3">
+            {/* ONLY ADDED THIS LINE */}
+            <AnimatedThemeToggler className={`p-2 rounded-xl text-gray-500 hover:text-gray-800 dark:text-white/50 dark:hover:text-white/80 transition-all ${card}`} />
+            
+            <button onClick={() => navigate('/profile')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-gray-500 hover:text-gray-800 dark:text-white/50 dark:hover:text-white/80 transition-all font-outfit text-sm ${card}`}>
+              <User className="w-4 h-4" /> Profile
+            </button>
+          </div>
         </div>
 
         {/* Header */}
@@ -90,8 +99,8 @@ export function DashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: 'Career',       value: savedCareer.title.split(' ').slice(0, 2).join(' '), icon: <Briefcase className="w-4 h-4" />, color: '#f97316' },
-                { label: 'Progress',     value: `${progressPercent}%`,                              icon: <TrendingUp className="w-4 h-4" />, color: '#ec4899' },
-                { label: 'Courses Done', value: `${completedCourses}/${totalCourses}`,               icon: <BookOpen className="w-4 h-4" />,   color: '#8b5cf6' },
+                { label: 'Progress',     value: `${progressPercent}%`,                               icon: <TrendingUp className="w-4 h-4" />, color: '#ec4899' },
+                { label: 'Courses Done', value: `${completedCourses}/${totalCourses}`,                icon: <BookOpen className="w-4 h-4" />,   color: '#8b5cf6' },
                 { label: 'Jobs Applied', value: `${appliedJobs}`,                                    icon: <CheckCircle2 className="w-4 h-4" />, color: '#22c55e' },
               ].map((stat, i) => (
                 <div key={i} className={`rounded-2xl p-4 ${card}`}>

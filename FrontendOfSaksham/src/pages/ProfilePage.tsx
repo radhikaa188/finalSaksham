@@ -3,6 +3,7 @@ import { useAuth, useUser } from '@clerk/clerk-react';
 import { useLang } from '../contexts/LanguageContext';
 import { useUserContext } from '../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
+import AnimatedThemeToggler from '../components/AnimatedThemeToggler';
 import {
   BookOpen, Briefcase, MessageSquare, User, Clock, TrendingUp,
   RotateCcw, ArrowLeft, CheckCircle2, Circle, ExternalLink,
@@ -153,6 +154,12 @@ export function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors relative overflow-hidden pt-24 pb-20">
+      {/* Theme Toggler Button */}
+      <div className="absolute top-6 right-6 z-50">
+        <AnimatedThemeToggler 
+          className="p-3 rounded-xl bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/5 dark:border-white/10 text-gray-800 dark:text-white hover:bg-white dark:hover:bg-white/10 transition-all shadow-lg"
+        />
+      </div>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 -left-20 w-96 h-96 bg-purple-500/20 dark:bg-purple-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 -right-20 w-96 h-96 bg-orange-500/20 dark:bg-orange-500/10 rounded-full blur-3xl" />

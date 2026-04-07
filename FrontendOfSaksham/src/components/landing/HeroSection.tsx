@@ -1,5 +1,8 @@
+import { useClerk, useUser } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useLang } from "../../contexts/LanguageContext";
+import { useTheme } from "../../contexts/ThemeContext";
 import { TextClipPathReveal } from "../Textclippathreveal";
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const TOTAL_FRAMES = 200;
@@ -20,7 +23,19 @@ export default function HeroSection(): JSX.Element {
   const rafRef = useRef<number | null>(null);
 
   const [textVisible, setTextVisible] = useState<boolean>(false);
+  const [hasScrolled, setHasScrolled] = useState<boolean>(false);
   const { lang } = useLang();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+   const { openSignIn } = useClerk();
+  const { isSignedIn } = useUser();
+  const navigate = useNavigate();
+
+  const handleEnterFuture = () => {
+    if (isSignedIn) navigate("/start");
+    else openSignIn({ redirectUrl: "/start" });
+  };
 
   // ── Preload frames ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -44,6 +59,12 @@ export default function HeroSection(): JSX.Element {
         const scrollable = outer.offsetHeight - window.innerHeight;
         const progress = Math.min(Math.max(scrolled / scrollable, 0), 1);
         const newIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(progress * TOTAL_FRAMES));
+        
+        if (window.scrollY > 20) {
+          setHasScrolled(true);
+        } else {
+          setHasScrolled(false);
+        }
 
         if (newIndex !== frameIndex.current) {
           frameIndex.current = newIndex;
@@ -129,7 +150,7 @@ h1:hover .hero-letter.in {
           letter-spacing: 0.18em;
           text-transform: uppercase;
           color: #fff;
-          background: linear-gradient(135deg, #ff7a3d 0%, #ff5e2e 100%);
+          background: #f97316;
           border: none;
           padding: 14px 42px;
           border-radius: 99px;
@@ -137,15 +158,16 @@ h1:hover .hero-letter.in {
           opacity: 0;
           transform: translateY(12px);
           transition: all 0.8s ease;
-          box-shadow: 0 4px 15px rgba(255, 122, 61, 0.2);
+          box-shadow: 0 4px 15px rgba(249, 115, 22, 0.2);
         }
         .cta-btn.in {
           opacity: 1;
           transform: translateY(0);
         }
         .cta-btn:hover {
+          background: #ea580c;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(255, 122, 61, 0.4);
+          box-shadow: 0 8px 25px rgba(249, 115, 22, 0.4);
         }
         .cta-btn span { position: relative; z-index: 1; }
 
@@ -174,7 +196,7 @@ h1:hover .hero-letter.in {
 
       <div
         ref={outerRef}
-        style={{ position: "relative", height: SCROLL_HEIGHT, background: "#0d0f1a" }}
+        style={{ position: "relative", height: SCROLL_HEIGHT, background: "var(--section-bg)" }}
       >
         <div
           className="sticky w-full overflow-hidden"
@@ -202,14 +224,7 @@ h1:hover .hero-letter.in {
           />
 
           <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(10, 10, 20, 0.6)",
-              mixBlendMode: "multiply",
-              zIndex: 1,
-              pointerEvents: "none",
-            }}
+            className="absolute inset-0 z-[1] pointer-events-none transition-colors duration-500 bg-white/30 dark:bg-black/60"
           />
 
           <div className="hero-glow" style={{ top: '-10%', left: '-10%', background: '#1b1f3a' }} />
@@ -238,19 +253,18 @@ h1:hover .hero-letter.in {
               <div style={{ width: 26, height: 1, background: "#ff7a3d", opacity: 0.75 }} />
             </div>
 
-            {/* ── Big letter-by-letter title (existing animation) ── */}
             <h1
+              className={`drop-shadow-md sm:drop-shadow-xl transition-colors duration-500 text-gray-900 dark:text-[#f5f5f7] ${
+                lang === "en" 
+                  ? "text-7xl sm:text-8xl md:text-9xl lg:text-[11rem]" 
+                  : "text-6xl sm:text-7xl md:text-8xl lg:text-[9rem]"
+              }`}
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 fontWeight: 400,
-                fontSize: lang === "en"
-                  ? "clamp(5.5rem, 13vw, 11rem)"
-                  : "clamp(4.5rem, 11vw, 9rem)",
                 lineHeight: 1,
                 letterSpacing: lang === "en" ? "0.14em" : "0.08em",
-                color: "#f5f5f7",
                 margin: 0,
-                textShadow: "0 0 30px rgba(0,0,0,0.5)",
               }}
             >
               {letters.map((letter: string, i: number) => (
@@ -285,7 +299,7 @@ h1:hover .hero-letter.in {
               revealDirection="bottom"
               duration={0.8}
               staggerDelay={0.15}
-              color="#a0a3bd"
+              color={isDark ? "#a0a3bd" : "#4b5563"}
               once={true}
               style={{
                 fontFamily: lang === "hi"
@@ -314,7 +328,7 @@ h1:hover .hero-letter.in {
                 revealDirection="bottom"
                 duration={0.7}
                 staggerDelay={0.2}
-                color="rgba(245,245,247,0.35)"
+                color={isDark ? "rgba(245,245,247,0.4)" : "rgba(17,24,39,0.6)"}
                 once={true}
                 style={{
                   fontFamily: lang === "hi"
@@ -334,6 +348,7 @@ h1:hover .hero-letter.in {
               <button
                 className={`cta-btn ${textVisible ? "in" : ""}`}
                 style={{ transitionDelay: "0.95s" }}
+                onClick={handleEnterFuture}
               >
                 <span>
                   {lang === "en" ? "Enter the Future" : "भविष्य में प्रवेश करें"}
@@ -342,22 +357,21 @@ h1:hover .hero-letter.in {
             </div>
 
             <div
-              className={`fade-up ${textVisible ? "in" : ""} flex flex-col items-center gap-2`}
+              className={`fade-up flex flex-col items-center gap-2 transition-opacity duration-500 ${textVisible && !hasScrolled ? "in opacity-100" : "opacity-0"}`}
               style={{
                 position: "absolute",
                 bottom: 28,
                 left: "50%",
                 transform: "translateX(-50%)",
-                transitionDelay: "1.2s",
+                transitionDelay: textVisible && !hasScrolled ? "1.2s" : "0s",
+                pointerEvents: textVisible && !hasScrolled ? "auto" : "none",
               }}
             >
-              <span style={{
+              <span className="text-gray-700 dark:text-gray-400 transition-colors duration-500" style={{
                 fontFamily: "'Jost', sans-serif",
                 fontSize: "0.65rem",
                 fontWeight: 600,
                 letterSpacing: "0.22em",
-                color: "#f5f5f7",
-                opacity: 0.5,
                 textTransform: "uppercase",
               }}>
                 {lang === "en" ? "Scroll" : "स्क्रॉल"}
