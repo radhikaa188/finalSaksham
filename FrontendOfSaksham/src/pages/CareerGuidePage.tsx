@@ -512,6 +512,18 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language, pr
           <p className={`text-base font-semibold font-outfit mb-1 ${recordingState === 'recording' ? 'text-red-500' : recordingState === 'ready' ? 'text-green-600' : isSpeaking ? 'text-purple-500' : 'text-gray-700 dark:text-gray-300'}`}>
             {micLabel}
           </p>
+          {hasAudio && recordingState === 'ready' && (
+  <button
+    onClick={onSubmit}
+    className="mt-4 px-6 py-3 rounded-xl text-white font-semibold font-outfit transition-all hover:scale-105"
+    style={{
+      background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+      boxShadow: '0 4px 14px rgba(34,197,94,0.3)'
+    }}
+  >
+    {language === 'hi' ? 'आगे बढ़ें' : 'Get Career Suggestions'}
+  </button>
+)}
         </div>
       </div>
     </div>
